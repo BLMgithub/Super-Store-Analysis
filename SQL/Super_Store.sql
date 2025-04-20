@@ -257,8 +257,8 @@ SELECT
         COUNT(DISTINCT(CS.CategorySubcategory))                     -- Unique Count of Category &
     FROM (                                                          -- SubCategory Combination
         SELECT
-            CONCAT(Category, SubCategory) AS CategorySubcategory	-- Stores combined 
-        FROM								                        -- Category & SubCategory
+            CONCAT(Category, SubCategory) AS CategorySubcategory    -- Stores combined 
+        FROM                                                        -- Category & SubCategory
             Stores
         GROUP BY
             Category,
@@ -622,7 +622,7 @@ WITH Duplicates AS(
         MC.Country,
         COUNT(MC.Country) AS UniqueCount            -- Counts Unique Country (Serves as Flag)
         FROM (
-            SELECT						            -- Stores combined Market & Country
+            SELECT                                  -- Stores combined Market & Country
                 Market, 
                 Country
             FROM
@@ -687,8 +687,8 @@ UPDATE
         #ToChangeMarketCountry AS MC
         ON MC.RowID = ST.RowID
     WHERE
-        MC.RowID = ST.RowID;                                    -- Only matching RowID will be
-                                                                -- affected by the update
+        MC.RowID = ST.RowID;                                  -- Only matching RowID will be
+                                                              -- affected by the update
 -- ROLLBACK;
 -- COMMIT;
 
