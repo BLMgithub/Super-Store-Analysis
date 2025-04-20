@@ -295,10 +295,10 @@ SELECT
     COUNT(DISTINCT(ProductName)) AS UniqueProduct,
     (
     SELECT
-        COUNT(DISTINCT(SP.SubcategoryProduct))				        -- Unique Count of Combined
+        COUNT(DISTINCT(SP.SubcategoryProduct))                      -- Unique Count of Combined
     FROM (                                                          -- SubCategory & ProductName
         SELECT
-            CONCAT(SubCategory, ProductName) AS SubcategoryProduct	-- Stores combined
+            CONCAT(SubCategory, ProductName) AS SubcategoryProduct  -- Stores combined
         FROM                                                        -- SubCategory & ProductName
             Stores
         GROUP BY
@@ -704,7 +704,7 @@ WITH Duplicates AS(
         SP.ProductName,
         COUNT(SP.ProductName) AS UniqueCount                -- Count Unique ProductName (Servers as Flag)
         FROM (
-            SELECT							                -- Stores combined SubCategory 
+            SELECT                                          -- Stores combined SubCategory 
                 SubCategory,                                -- & ProductName
                 ProductName
             FROM
@@ -965,7 +965,7 @@ WITH OrderDistribution AS (
                 COUNT(ProductName)                              -- Count order per segment
                 FOR Segment
                 IN ([Consumer], [Corporate], [Home Office])     -- Creates 3 columns for each segments
-            ) AS PivotTable	                                    -- with each having total order
+            ) AS PivotTable                                     -- with each having total order
     GROUP BY
         QuarterNo,
         MonthName
@@ -1104,7 +1104,7 @@ ORDER BY
 /** Calculates the percentage distribution of total sales within each categories performance group **/
 
 SELECT
-    Category,								            -- Formatted for clarity
+    Category,                                           -- Formatted for clarity
     FORMAT(High, 'P2') AS High,
     FORMAT(Moderate, 'P2') AS Moderate,
     FORMAT(Low, 'P2') AS Low
@@ -1266,8 +1266,8 @@ WHILE
                 @StartDate,                                 -- Date 'YYYY-MM-DD'
                 DAY(@StartDate),                            -- Date No.
                 DATEPART(MM, @StartDate),                   -- Month No.
-                LEFT(DATENAME(MONTH, @StartDate), 3),		-- Month Name First 3 letters
-                CONCAT('Q',DATEPART(QUARTER, @StartDate)),	-- Quarter No.
+                LEFT(DATENAME(MONTH, @StartDate), 3),       -- Month Name First 3 letters
+                CONCAT('Q',DATEPART(QUARTER, @StartDate)),  -- Quarter No.
                 YEAR(@StartDate)                            -- Year No.
             )
         SET @Counter += 1                                   -- Increment by 1
