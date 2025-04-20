@@ -9,15 +9,15 @@
 
         LINE   60 - 84	 ................................... IMPORTING DATA
 
-        LINE   85 - 262	 ................................... DATA INSPECTION
+        LINE   85 - 594	 ................................... DATA INSPECTION
 
-        LINE  263 - 449	 ................................... DATA CLEANING
+        LINE  595 - 781	 ................................... DATA CLEANING
 
-        LINE  450 - 503	 ................................... ADDING DATE RELATED COLUMNS
+        LINE  782 - 835	 ................................... ADDING DATE RELATED COLUMNS
 
-        LINE  504 - 1037 ................................... DATA EXPLORATION
+        LINE  836 - 1132 ................................... DATA EXPLORATION
 
-        LINE 1038 - 1239 ................................... DATA FOR EXPORT / DASHBOARD
+        LINE 1132 - 1334 ................................... DATA FOR EXPORT / DASHBOARD
 */
 
 
@@ -31,29 +31,29 @@ USE Super_Store
 IF OBJECT_ID('Stores') IS NOT NULL DROP TABLE Stores;
 
 CREATE TABLE Stores(
-    RowID		INT NULL,
-    OrderID		NVARCHAR(70) NULL,
-    OrderDate		DATE NULL,
-    Shipdate		DATE NULL,
-    Shipmode		NVARCHAR(30) NULL,
-    CustomerID		NVARCHAR(30) NULL,
-    CustomerName	NVARCHAR(70) NULL,
-    Segment		NVARCHAR(30) NULL,
-    City		NVARCHAR(100) NULL,
-    State		NVARCHAR(100) NULL,
-    Country		NVARCHAR(100) NULL,
-    Market		NVARCHAR(30) NULL,
-    Region		NVARCHAR(30) NULL,
-    ProductID		NVARCHAR(100) NULL,
-    Category		NVARCHAR(30) NULL,
-    SubCategory		NVARCHAR(30) NULL,
-    ProductName		NVARCHAR(255) NULL,
-    Sales		DECIMAL(10,2) NULL,
-    Quantity		TINYINT NULL,
-    Discount		DECIMAL(5,3) NULL,
-    Profit		DECIMAL(10,2) NULL,
-    ShippingCost	Decimal(10,2) NULL,
-    OrderPriority	NVARCHAR(30) NULL
+    RowID           INT NULL,
+    OrderID         NVARCHAR(70) NULL,
+    OrderDate       DATE NULL,
+    Shipdate        DATE NULL,
+    Shipmode        NVARCHAR(30) NULL,
+    CustomerID      NVARCHAR(30) NULL,
+    CustomerName    NVARCHAR(70) NULL,
+    Segment         NVARCHAR(30) NULL,
+    City            NVARCHAR(100) NULL,
+    State           NVARCHAR(100) NULL,
+    Country         NVARCHAR(100) NULL,
+    Market          NVARCHAR(30) NULL,
+    Region          NVARCHAR(30) NULL,
+    ProductID       NVARCHAR(100) NULL,
+    Category        NVARCHAR(30) NULL,
+    SubCategory     NVARCHAR(30) NULL,
+    ProductName     NVARCHAR(255) NULL,
+    Sales           DECIMAL(10,2) NULL,
+    Quantity        TINYINT NULL,
+    Discount        DECIMAL(5,3) NULL,
+    Profit          DECIMAL(10,2) NULL,
+    ShippingCost    Decimal(10,2) NULL,
+    OrderPriority   NVARCHAR(30) NULL
     );
 
 
@@ -87,49 +87,91 @@ FROM
 /*-------------------------------------------------------------------------------------------------*/
 
 
-/**  Checking Null and Distinct Values  **/
+/**  Creating Dataset Information  **/
+
+-- Creating Summary Table
+IF OBJECT_ID('#DataInfo') IS NOT NULL DROP TABLE #DataInfo;
+
+CREATE TABLE #DataInfo(
+    ColumnName      NVARCHAR(100),
+    DataType        NVARCHAR(30),
+    NullCount       INT,
+    DistinctCount   INT
+);
 
 -- Store String Query
 DECLARE @GetNulls_DistinctCount NVARCHAR(MAX);
 
 -- Constructing Query
 SELECT @GetNulls_DistinctCount = 
+    
+    'INSERT INTO #DataInfo ' +
+    
     STRING_AGG(
         CAST('SELECT 
-                ''' + name + ''' AS ColumnName, 
+                ''' + name + ''' AS ColumnName,
+                '''+ DATA_TYPE +''' As DataType,
                 COUNT(CASE WHEN ' + name + ' IS NULL THEN 1 END) AS NullCount,
                 COUNT(DISTINCT ' + name +') AS DistinctCount
             FROM
                 Stores'
-                AS NVARCHAR(MAX)			-- Bypass 8000-byte limit on STRING_AGG  
+                AS NVARCHAR(MAX)        -- Bypass 8000-byte limit on STRING_AGG  
                 ),
-            ' UNION ALL '
+            ' UNION ALL ' 
             )
 FROM
-    sys.columns
+    sys.columns AS Syscol
+        JOIN
+    INFORMATION_SCHEMA.Columns as InfoCol
+    ON Syscol.name = InfoCol.COLUMN_NAME
 WHERE
-    object_id = OBJECT_ID('Stores');
+    object_id = OBJECT_ID('Stores')
+        AND
+    TABLE_NAME = 'Stores';
 
 -- Executing Stored Query
 EXEC(@GetNulls_DistinctCount);
 
 
-/*-------------------------------------------------------------------------------------------------*/
-
-
-/**  Checking duplicates in RowID  **/
+-- Checking Result
 SELECT
-    COUNT(DISTINCT(RowID)) AS UniqueCount,
-    COUNT(RowID) AS TotalCount,
-    MAX(RowID) AS MaxRowID
+    *
 FROM
-    Stores;
+    #DataInfo
 
 
 /*-------------------------------------------------------------------------------------------------*/
 
 
-/**  Comparing Unique count for CustomerID and CustomerName (TO DROP: Mismatch Count)  **/
+/** Checking Duplicates on dataset **/
+
+-- Store String Query
+DECLARE @GetDuplicates NVARCHAR(MAX);
+
+-- Constructing Query
+SELECT @GetDuplicates =
+    'SELECT 
+        COUNT(*) AS DuplicateCounter,
+        ' + STRING_AGG(QUOTENAME(name), ', ') + '
+    FROM 
+        Stores 
+    GROUP BY
+        ' + STRING_AGG(QUOTENAME(name), ', ') + '
+    HAVING
+        COUNT(*) > 1'
+FROM
+	sys.columns
+WHERE
+	object_id = OBJECT_ID('Stores');
+
+-- Executing Stored Query
+EXEC(@GetDuplicates);
+
+
+/*-------------------------------------------------------------------------------------------------*/
+
+
+/**  Checking Data Consistency for CustomerID and CustomerName (TO DROP: Mismatch Count)  **/
 SELECT
     COUNT(DISTINCT(CustomerName)) AS UniqueCustomer,
     COUNT(DISTINCT(CustomerID)) AS UniqueCustomerID
@@ -140,7 +182,7 @@ FROM
 /*-------------------------------------------------------------------------------------------------*/
 
 
-/**  Comparing Unique count for ProductID and ProductName (TO DROP: Mismatch Count)	 **/
+/**  Checking Data Consistency for ProductID and ProductName (TO DROP: Mismatch Count)	 **/
 SELECT
     COUNT(DISTINCT(ProductName)) AS UniqueProduct,
     COUNT(DISTINCT(ProductID)) AS UniqueProductID
@@ -169,17 +211,17 @@ SELECT
     COUNT(DISTINCT(Country)) AS UniqueCountry,
     (
     SELECT
-        COUNT(DISTINCT(MC.MarketCountry))				-- Unique Count of Market &
-    FROM (								-- Country Combination
+        COUNT(DISTINCT(MC.MarketCountry))               -- Unique Count of Market &
+    FROM (                                              -- Country Combination
         SELECT											
-            CONCAT(Market, Country) AS MarketCountry	-- Stores combined Market & Country
+            CONCAT(Market, Country) AS MarketCountry    -- Stores combined Market & Country
         FROM
             Stores
         GROUP BY
             Market,
             Country
         ) AS MC
-    ) AS UniqueMarketCountry						-- Result Column Name
+    ) AS UniqueMarketCountry                            -- Result Column Name
 FROM
     Stores;
 
@@ -189,12 +231,20 @@ FROM
 
 /** Checking SubCategory count for each Category  **/
 SELECT
+    *
+FROM
+    #DataInfo;
+
+--
+
+SELECT
     Category,
     COUNT(DISTINCT SubCategory) AS SubCategoryCount
 FROM
     Stores
 GROUP BY
     Category;
+
 
 /*-------------------------------------------------------------------------------------------------*/
 
@@ -204,17 +254,17 @@ SELECT
     COUNT(DISTINCT(SubCategory)) AS UniqueSubCategory,
     (
     SELECT
-        COUNT(DISTINCT(CS.CategorySubcategory))				-- Unique Count of Category &
-    FROM (								-- SubCategory Combination
+        COUNT(DISTINCT(CS.CategorySubcategory))                     -- Unique Count of Category &
+    FROM (                                                          -- SubCategory Combination
         SELECT
             CONCAT(Category, SubCategory) AS CategorySubcategory	-- Stores combined 
-        FROM								-- Category & SubCategory
+        FROM								                        -- Category & SubCategory
             Stores
         GROUP BY
             Category,
             SubCategory
         ) AS CS
-    ) AS UniqueCategorySubcategory					-- Result Column Name
+    ) AS UniqueCategorySubcategory                                  -- Result Column Name
 FROM
     Stores;
 
@@ -245,269 +295,106 @@ SELECT
     COUNT(DISTINCT(ProductName)) AS UniqueProduct,
     (
     SELECT
-        COUNT(DISTINCT(SP.SubcategoryProduct))				-- Unique Count of Combined
-    FROM (								-- SubCategory & ProductName
+        COUNT(DISTINCT(SP.SubcategoryProduct))				        -- Unique Count of Combined
+    FROM (                                                          -- SubCategory & ProductName
         SELECT
             CONCAT(SubCategory, ProductName) AS SubcategoryProduct	-- Stores combined
-        FROM								-- SubCategory & ProductName
+        FROM                                                        -- SubCategory & ProductName
             Stores
         GROUP BY
             SubCategory,
             ProductName
         ) AS SP
-    ) AS UniqueSubcategoryProduct					-- Result Column Name
+    ) AS UniqueSubcategoryProduct                                   -- Result Column Name
 FROM
     Stores;
 
 
 /*-------------------------------------------------------------------------------------------------*/
-/*--------------------------------------- DATA CLEANING -------------------------------------------*/
-/*-------------------------------------------------------------------------------------------------*/
 
 
-/**  Fix for Combining US and Canada into 1 Market 'NorthAmerica' **/
-BEGIN TRAN								-- Safeguard, option to rollback
-UPDATE
-    Stores
-    SET Market=
-        'NA'								-- Maps Correct Values
-    FROM
-        Stores
-    WHERE
-        Market IN ('US', 'Canada');
+/** Cheking Continuous Variables **/
+SELECT
+    *
+FROM
+    #DataInfo
+WHERE
+    DataType != 'Nvarchar';
 
--- ROLLBACK;
--- COMMIT;
+-- Creating Temporary table for Continuous variable
+
+SELECT
+    ColumnName
+INTO #ContinuousVariables
+FROM
+    #DataInfo
+WHERE
+    ColumnName IN ('Sales', 'Quantity', 'Discount', 'Profit', 'ShippingCost');
 
 
-/*-------------------------------------------------------------------------------------------------*/
+/** Cheking Range of Continuous Variables **/
 
+-- Storing String Query
+DECLARE @GetMinMax NVARCHAR(MAX);
 
-/**  Fix for Market & Country Hierarchy Inconsistency  **/
-
---  Identifying Inconsistency
-WITH Duplicates AS(
-    SELECT
-        MC.Country,
-        COUNT(MC.Country) AS UniqueCount			-- Counts Unique Country (Serves as Flag)
-        FROM (
-            SELECT						-- Stores combined Market & Country
-                Market, 
-                Country
+-- Constructing Query
+SELECT @GetMinMax = 
+    
+    STRING_AGG(
+            ('SELECT 
+                ''' + name + ''' AS ColumnName,
+                MIN('+ name + ') AS MinValue,
+                MAX(' + name +') AS MaxValue
             FROM
-                Stores
-            GROUP BY
-                Market,
-                Country
-            ) AS MC
-    GROUP BY
-        MC.Country
-)
-SELECT
-    ST.Market,
-    ST.Country,
-    COUNT(ST.Country) AS RegCount
+                Stores'
+                ),
+            ' UNION ALL ' 
+            )
 FROM
-    Stores AS ST
-        JOIN
-    Duplicates AS DU
-    ON ST.Country = DU.Country
+    sys.columns AS SysCol
+        RIGHT JOIN
+    #ContinuousVariables AS ContVar
+    ON SysCol.name = ContVar.ColumnName
+
 WHERE
-    DU.UniqueCount > 1						-- Return data with more than 1 unique count
-GROUP BY
-    ST.Market,
-    ST.Country;
+    object_id = OBJECT_ID('Stores')
+
+-- Executing Stored Query
+EXEC(@GetMinMax);
 
 
 /*-------------------------------------------------------------------------------------------------*/
 
 
--- Assigning Correct Value, to be map for each Associated RowID in Update Statement
+/** Checking Suspicious Values **/
+
 SELECT
-    RowID,
-    Market,
-    Country,
-    CASE
-        WHEN Market = 'EMEA' AND Country = 'Austria' THEN 'EU'
-        WHEN Market = 'EMEA' AND Country = 'Mongolia' THEN 'APAC'
-    END AS CorrectMarket
-INTO #ToChangeMarketCountry						-- Saved Into Temporary Table
+    *
 FROM
     Stores
 WHERE
-    Market = 'EMEA' AND Country = 'Austria'	
-    OR Market = 'EMEA' AND Country = 'Mongolia';
+    Sales = 22638.480
 
+--
 
-/*-------------------------------------------------------------------------------------------------*/
-
-
--- Mapping Correct 'Market' for identified inconsistent data.
-BEGIN TRAN								-- Safeguard, option to rollback
-UPDATE
-    Stores
-    SET Market =
-        CASE
-            WHEN MC.RowID = ST.RowID THEN MC.CorrectMarket		-- Maps Correct Values
-        END
-    FROM
-        Stores AS ST
-            LEFT JOIN
-        #ToChangeMarketCountry AS MC
-        ON MC.RowID = ST.RowID
-    WHERE
-        MC.RowID = ST.RowID;						-- Only matching RowID will be
-                                                                	-- affected by the update
--- ROLLBACK;
--- COMMIT;
-
-
-/*-------------------------------------------------------------------------------------------------*/
-
-
-/**  Fix for SubCategory & ProductName Hierarchy Inconsistency  **/
-
---  Identifying Inconsistency
-WITH Duplicates AS(
-    SELECT
-        SP.ProductName,
-        COUNT(SP.ProductName) AS UniqueCount				-- Count Unique ProductName (Servers as Flag)
-        FROM (
-            SELECT							-- Stores combined SubCategory 
-                SubCategory,						-- & ProductName
-                ProductName
-            FROM
-                Stores
-            GROUP BY
-                SubCategory, 
-                ProductName
-            ) AS SP
-    GROUP BY
-        SP.ProductName
-)
 SELECT
-    ST.Category,
-    ST.SubCategory,
-    ST.ProductName,
-    COUNT(ST.ProductName) AS RegCount
-FROM
-    Stores AS ST
-        JOIN
-    Duplicates AS DU								
-    ON ST.ProductName = DU.ProductName
-WHERE
-    DU.UniqueCount > 1							-- Return data with more than 1 unique count
-GROUP BY
-    ST.Category,
-    ST.SubCategory,
-    ST.ProductName;
-
-
-/*-------------------------------------------------------------------------------------------------*/
-
-
--- Assigning Correct Value, to be map for each Associated RowID in Update Statement
-SELECT
-    RowID,
-    SubCategory,
-    ProductName,
-    'Fasteners' AS CorrectSubCategory,
-    'Office Supplies' AS CorrectCategory
-INTO #ToChangeSubCategoryProductName					-- Saved into Temporary Table
+    *
 FROM
     Stores
 WHERE
-    SubCategory != 'Fasteners' AND ProductName = 'Staples';
+    Profit IN(-6599.980, 8399.980)
 
+--
 
-/*-------------------------------------------------------------------------------------------------*/
-
-
--- Mapping Correct 'SubCategory' for identified inconsistent data
-BEGIN TRAN								-- Safeguard, option to rollback
-UPDATE
-    Stores
-    SET SubCategory =
-        CASE
-            WHEN SP.RowID = ST.RowID THEN SP.CorrectSubCategory		-- Maps Correct Values
-        END,
-    Category =
-        CASE
-            WHEN SP.RowID = ST.RowID THEN SP.CorrectCategory
-        END
-    FROM
-        Stores AS ST
-            LEFT JOIN
-        #ToChangeSubCategoryProductName AS SP
-        ON SP.RowID = ST.RowID
-    WHERE
-        SP.RowID = ST.RowID;						-- Only matching RowID will be
-                                                                   	-- affected by the update
- --ROLLBACK;
--- COMMIT;
-
-
-/*-------------------------------------------------------------------------------------------------*/
-/*------------------------------ ADDING DATE RELATED COLUMNS --------------------------------------*/
-/*-------------------------------------------------------------------------------------------------*/
-
-
--- Adding Date related columns
-ALTER TABLE Stores
-ADD MonthName	NVARCHAR(30) NULL, 
-    MonthNo		TINYINT NULL,
-    QuarterNo	NVARCHAR(5) NULL,
-    Year		SMALLINT NULL;
-
-
-/*-------------------------------------------------------------------------------------------------*/
-
-
--- Inspecting Result before populating the table
 SELECT
-    TOP 5 LEFT(DATENAME(MONTH,OrderDate),3) AS MonthName,
-    MONTH(OrderDate) AS MonthNo,
-    CONCAT('Q', DATEPART(QUARTER,OrderDate)) AS QuarterNo,
-    YEAR(Orderdate) AS Year
+    *
 FROM
-    Stores;
-
-
-/*-------------------------------------------------------------------------------------------------*/
-
-
--- Populating the columns.
-BEGIN TRAN
-UPDATE Stores
-SET 
-    MonthName = LEFT(DATENAME(MONTH, OrderDate), 3),
-    QuarterNo = CONCAT('Q', DATEPART(QUARTER,OrderDate)),
-    MonthNo = MONTH(OrderDate),
-    Year = YEAR(OrderDate)
-WHERE
-    OrderDate IS NOT NULL;
-
---ROLLBACK;
---COMMIT;
-
+    #DataInfo
 
 /*-------------------------------------------------------------------------------------------------*/
 
 
--- Checking Result
-SELECT
-    TOP 5 *
-FROM
-    Stores;
-
-
-/*-------------------------------------------------------------------------------------------------*/
-/*------------------------------------- DATA EXPLORATION ------------------------------------------*/
-/*-------------------------------------------------------------------------------------------------*/
-
-
-
-/** Checking for Negative Profit Records **/
+/** Checking on negative profit values **/
 
 SELECT
     *
@@ -618,42 +505,6 @@ ORDER BY
 
 /*-------------------------------------------------------------------------------------------------*/
 
-
-/** Creating a table to store a random sample, avoiding NEWID() reordering for reproducibility. **/
-
-IF OBJECT_ID('RandomSample_Negative_Profit') IS NOT NULL DROP TABLE RandomSample_Negative_Profit;
-
-CREATE TABLE RandomSample_Negative_Profit (
-    ShippingCost	DECIMAL(10,2),
-    Discount		DECIMAL(5,3),
-    Profit			DECIMAL(10,2)
-)
-
--- Populating Random Sample Table
-INSERT INTO RandomSample_Negative_Profit (ShippingCost, Discount, Profit)
-    SELECT 
-        TOP 1000
-        ShippingCost,
-        Discount,
-        Profit
-    FROM 
-        Stores
-    WHERE 
-        Profit < 0
-    ORDER BY 
-        NEWID();				-- Randomizer / acts as Random_sample()
-
-
--- Checking Result
-
-SELECT
-    *
-FROM
-    RandomSample_Negative_Profit;
-
-
-/*-------------------------------------------------------------------------------------------------*/
-
 /** Breaking down negative profit by shipping mode to uncover patterns or potential refund behavior **/
 
 SELECT
@@ -721,17 +572,16 @@ FROM
     Stores
 WHERE
     OrderID IN('CA-2013-108196', 'CA-2011-169019', 'CA-2014-134845',
-                'TU-2011-6790', 'CA-2013-130946', 'CA-2014-151750')		-- Random Selection
+                'TU-2011-6790', 'CA-2013-130946', 'CA-2014-151750')     -- Random Selection
 ORDER BY
     OrderID,
     Profit;
 
 /*
 
-After deep diving into negative profit, the results revealed extreme cases 
-where negative profit exceeds total sales value, which logically shouldn t happen. 
+Deep diving into negative profit revealed extreme cases where negative profit exceeds total sales value.
 
-These scenarios likely result from one or more of the following:
+Which logically shouldn't happen. Is likely result from one or more of the following:
 
 1. System glitches or data quality issues leading to invalid profit entries.
 2. Double-counting discounts or misapplied business logic in ETL/Profit calculation.
@@ -740,6 +590,250 @@ These scenarios likely result from one or more of the following:
 */
 
 
+
+/*-------------------------------------------------------------------------------------------------*/
+/*--------------------------------------- DATA CLEANING -------------------------------------------*/
+/*-------------------------------------------------------------------------------------------------*/
+
+
+/**  Fix for Combining US and Canada into 1 Market 'NorthAmerica' **/
+BEGIN TRAN
+UPDATE
+    Stores
+    SET Market=
+        'NA'
+    FROM
+        Stores
+    WHERE
+        Market IN ('US', 'Canada');
+
+-- ROLLBACK;
+-- COMMIT;
+
+
+/*-------------------------------------------------------------------------------------------------*/
+
+
+/**  Fix for Market & Country Hierarchy Inconsistency  **/
+
+--  Identifying Inconsistency
+WITH Duplicates AS(
+    SELECT
+        MC.Country,
+        COUNT(MC.Country) AS UniqueCount            -- Counts Unique Country (Serves as Flag)
+        FROM (
+            SELECT						            -- Stores combined Market & Country
+                Market, 
+                Country
+            FROM
+                Stores
+            GROUP BY
+                Market,
+                Country
+            ) AS MC
+    GROUP BY
+        MC.Country
+)
+SELECT
+    ST.Market,
+    ST.Country,
+    COUNT(ST.Country) AS RegCount
+FROM
+    Stores AS ST
+        JOIN
+    Duplicates AS DU
+    ON ST.Country = DU.Country
+WHERE
+    DU.UniqueCount > 1                              -- Return data with more than 1 unique count
+GROUP BY
+    ST.Market,
+    ST.Country;
+
+
+/*-------------------------------------------------------------------------------------------------*/
+
+
+-- Assigning Correct Value, to be map for each Associated RowID in Update Statement
+SELECT
+    RowID,
+    Market,
+    Country,
+    CASE
+        WHEN Market = 'EMEA' AND Country = 'Austria' THEN 'EU'
+        WHEN Market = 'EMEA' AND Country = 'Mongolia' THEN 'APAC'
+    END AS CorrectMarket
+INTO #ToChangeMarketCountry                         -- Saved Into Temporary Table
+FROM
+    Stores
+WHERE
+    Market = 'EMEA' AND Country = 'Austria'	
+    OR Market = 'EMEA' AND Country = 'Mongolia';
+
+
+/*-------------------------------------------------------------------------------------------------*/
+
+
+-- Mapping Correct 'Market' for identified inconsistent data.
+BEGIN TRAN
+UPDATE
+    Stores
+    SET Market =
+        CASE
+            WHEN MC.RowID = ST.RowID THEN MC.CorrectMarket
+        END
+    FROM
+        Stores AS ST
+            LEFT JOIN
+        #ToChangeMarketCountry AS MC
+        ON MC.RowID = ST.RowID
+    WHERE
+        MC.RowID = ST.RowID;                                    -- Only matching RowID will be
+                                                                -- affected by the update
+-- ROLLBACK;
+-- COMMIT;
+
+
+/*-------------------------------------------------------------------------------------------------*/
+
+
+/**  Fix for SubCategory & ProductName Hierarchy Inconsistency  **/
+
+--  Identifying Inconsistency
+WITH Duplicates AS(
+    SELECT
+        SP.ProductName,
+        COUNT(SP.ProductName) AS UniqueCount                -- Count Unique ProductName (Servers as Flag)
+        FROM (
+            SELECT							                -- Stores combined SubCategory 
+                SubCategory,                                -- & ProductName
+                ProductName
+            FROM
+                Stores
+            GROUP BY
+                SubCategory, 
+                ProductName
+            ) AS SP
+    GROUP BY
+        SP.ProductName
+)
+SELECT
+    ST.Category,
+    ST.SubCategory,
+    ST.ProductName,
+    COUNT(ST.ProductName) AS RegCount
+FROM
+    Stores AS ST
+        JOIN
+    Duplicates AS DU								
+    ON ST.ProductName = DU.ProductName
+WHERE
+    DU.UniqueCount > 1                                      -- Return data with more than 1 unique count
+GROUP BY
+    ST.Category,
+    ST.SubCategory,
+    ST.ProductName;
+
+
+/*-------------------------------------------------------------------------------------------------*/
+
+
+-- Assigning Correct Value, to be map for each Associated RowID in Update Statement
+SELECT
+    RowID,
+    SubCategory,
+    ProductName,
+    'Fasteners' AS CorrectSubCategory,
+    'Office Supplies' AS CorrectCategory
+INTO #ToChangeSubCategoryProductName                        -- Saved into Temporary Table
+FROM
+    Stores
+WHERE
+    SubCategory != 'Fasteners' AND ProductName = 'Staples';
+
+
+/*-------------------------------------------------------------------------------------------------*/
+
+
+-- Mapping Correct 'SubCategory' for identified inconsistent data
+BEGIN TRAN
+UPDATE
+    Stores
+    SET SubCategory =
+        CASE
+            WHEN SP.RowID = ST.RowID THEN SP.CorrectSubCategory     -- Maps Correct Values
+        END,
+    Category =
+        CASE
+            WHEN SP.RowID = ST.RowID THEN SP.CorrectCategory
+        END
+    FROM
+        Stores AS ST
+            LEFT JOIN
+        #ToChangeSubCategoryProductName AS SP
+        ON SP.RowID = ST.RowID
+    WHERE
+        SP.RowID = ST.RowID;                                        -- Only matching RowID will be
+                                                                    -- affected by the update
+ --ROLLBACK;
+-- COMMIT;
+
+
+/*-------------------------------------------------------------------------------------------------*/
+/*------------------------------ ADDING DATE RELATED COLUMNS --------------------------------------*/
+/*-------------------------------------------------------------------------------------------------*/
+
+
+-- Adding Date related columns
+ALTER TABLE Stores
+ADD MonthName	NVARCHAR(30) NULL, 
+    MonthNo		TINYINT NULL,
+    QuarterNo	NVARCHAR(5) NULL,
+    Year		SMALLINT NULL;
+
+
+/*-------------------------------------------------------------------------------------------------*/
+
+
+-- Inspecting Result before populating the table
+SELECT
+    TOP 5 LEFT(DATENAME(MONTH,OrderDate),3) AS MonthName,
+    MONTH(OrderDate) AS MonthNo,
+    CONCAT('Q', DATEPART(QUARTER,OrderDate)) AS QuarterNo,
+    YEAR(Orderdate) AS Year
+FROM
+    Stores;
+
+
+/*-------------------------------------------------------------------------------------------------*/
+
+
+-- Populating the columns.
+BEGIN TRAN
+UPDATE Stores
+SET 
+    MonthName = LEFT(DATENAME(MONTH, OrderDate), 3),
+    QuarterNo = CONCAT('Q', DATEPART(QUARTER,OrderDate)),
+    MonthNo = MONTH(OrderDate),
+    Year = YEAR(OrderDate)
+WHERE
+    OrderDate IS NOT NULL;
+
+--ROLLBACK;
+--COMMIT;
+
+
+/*-------------------------------------------------------------------------------------------------*/
+
+
+-- Checking Result
+SELECT
+    TOP 5 *
+FROM
+    Stores;
+
+
+/*-------------------------------------------------------------------------------------------------*/
+/*------------------------------------- DATA EXPLORATION ------------------------------------------*/
 /*-------------------------------------------------------------------------------------------------*/
 
 
@@ -849,8 +943,8 @@ ORDER BY
 /** Calculates Orders distribution in % for each segment, and discounted products impact **/
 
 WITH OrderDistribution AS (
-    SELECT								-- Pivoted table with each segments
-        QuarterNo,							-- data converted to percentage
+    SELECT                                                      -- Pivoted table with each segments
+        QuarterNo,                                              -- data converted to percentage
         MonthName,
         SUM(CAST(Consumer AS FLOAT))  / SUM(SUM(Consumer)) OVER() AS Consumer,
         SUM(CAST(Corporate AS FLOAT)) / SUM(SUM(Corporate)) OVER()  AS Corporate,
@@ -868,10 +962,10 @@ WITH OrderDistribution AS (
             ) AS TableSource
                 PIVOT
             (
-                COUNT(ProductName)					-- Count order per segment
+                COUNT(ProductName)                              -- Count order per segment
                 FOR Segment
-                IN ([Consumer], [Corporate], [Home Office])		-- Creates 3 columns for each segments
-            ) AS PivotTable						-- with each having total order
+                IN ([Consumer], [Corporate], [Home Office])     -- Creates 3 columns for each segments
+            ) AS PivotTable	                                    -- with each having total order
     GROUP BY
         QuarterNo,
         MonthName
@@ -881,16 +975,16 @@ MonthlyDiscounts AS (
         MonthNo,
         MonthName,
         SUM(CASE
-                WHEN Discount > 0.000 THEN 1				-- 1 represents a product was sold with
-                ELSE 0							-- with discount. Enables to calculate
-            END) AS DiscountedProductCount				-- total products sold with discount
+                WHEN Discount > 0.000 THEN 1                    -- 1 represents a product was sold with
+                ELSE 0                                          -- with discount. Enables to calculate
+            END) AS DiscountedProductCount                      -- total products sold with discount
     FROM
         Stores
     GROUP BY
         MonthNo,
         MonthName
 )
-SELECT									-- Formatted data for clarity
+SELECT                                                          -- Formatted data for clarity
     TD.MonthName,
     FORMAT(TD.Consumer, 'P2') AS 'ConsumerOrder(%)',
     FORMAT(TD.Corporate, 'P2') AS 'CorporateOrder(%)',
@@ -929,7 +1023,7 @@ INSERT INTO RandomSample_Sales (ShippingCost, Discount, Sales)
     FROM 
         Stores
     ORDER BY 
-        NEWID();						-- Randomizer / acts as Random_sample()
+        NEWID();
 
 
 -- Checking Result
@@ -959,8 +1053,8 @@ WITH ProductSalesInfo AS (
         SubCategory,
         ProductName
     ),
-SubCategoryBenchmark AS (					-- Percentiles for each Subcategory
-    SELECT							-- AvgSales that would serve as Benchmark
+SubCategoryBenchmark AS (                               -- Percentiles for each Subcategory
+    SELECT                                              -- AvgSales that would serve as Benchmark
         DISTINCT SubCategory,
         PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY AvgSales) OVER (PARTITION BY SubCategory) AS P25,
         PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY AvgSales) OVER (PARTITION BY SubCategory) AS P50,
@@ -973,12 +1067,12 @@ SELECT
     PSI.SubCategory,
     PSI.ProductName,
     PSI.TotalSales,
-    CASE							-- Flag for products AvgSales performance
+    CASE                                                -- Flag for products AvgSales performance
         WHEN PSI.AvgSales >= SCB.P75 THEN 'High'
         WHEN PSI.AvgSales >= SCB.P50 AND PSI.AvgSales < SCB.P75 THEN 'Moderate'
         ELSE 'Low'
     END AS AvgSalesPerformance
-INTO #ProductPerformance					-- Saved into temporary table
+INTO #ProductPerformance                                -- Saved into temporary table
 FROM
     ProductSalesInfo AS PSI
         JOIN
@@ -1010,16 +1104,16 @@ ORDER BY
 /** Calculates the percentage distribution of total sales within each categories performance group **/
 
 SELECT
-    Category,								-- Formatted for clarity
+    Category,								            -- Formatted for clarity
     FORMAT(High, 'P2') AS High,
     FORMAT(Moderate, 'P2') AS Moderate,
     FORMAT(Low, 'P2') AS Low
 FROM
 (
     
-    SELECT								-- Calculates Sales distribution
-        Category,							-- percentage for each category
-        AvgSalesPerformance,						-- and product performance
+    SELECT                                              -- Calculates Sales distribution
+        Category,                                       -- percentage for each category
+        AvgSalesPerformance,                            -- and product performance
         SUM(TotalSales) / SUM(SUM(TotalSales)) OVER(PARTITION BY Category) AS TotalSalesPercentage
     FROM
         #ProductPerformance
@@ -1029,8 +1123,8 @@ FROM
     )AS TableSource
         PIVOT
         (
-        SUM(TotalSalesPercentage)					-- Sum of total Sales percentage
-        FOR AvgSalesPerformance						-- for each product performance
+        SUM(TotalSalesPercentage)                       -- Sum of total Sales percentage
+        FOR AvgSalesPerformance	                        -- for each product performance
         IN ([High], [Moderate], [Low])
         )AS PivotTable;
 
@@ -1056,10 +1150,10 @@ CREATE TABLE DIM_Product (
 -- Populating Product Table
 INSERT INTO DIM_Product(ProductID, ProductName, Performance, SubCategory, Category)
 
-SELECT							-- Creates combined abbrevation of
-    CONCAT(						-- Category and SubCategory with product 
-        UPPER(LEFT(Category, 3)), '-',			-- number starting at 100,000 and increment by 1
-        UPPER(LEFT(SubCategory, 2)), '-',		-- increment reset to 0 for each SubCategory
+SELECT                                                  -- Creates combined abbrevation of
+    CONCAT(                                             -- Category and SubCategory with product 
+        UPPER(LEFT(Category, 3)), '-',                  -- number starting at 100,000 and increment by 1
+        UPPER(LEFT(SubCategory, 2)), '-',               -- increment reset to 0 for each SubCategory
         CAST(ROW_NUMBER() OVER(PARTITION BY SubCategory ORDER BY Category) + 100000 
     AS NVARCHAR)) AS ProductID,
     ProductName,
@@ -1079,17 +1173,17 @@ FROM
 IF OBJECT_ID('DIM_CountryMarket') IS NOT NULL DROP TABLE DIM_CountryMarket;
 
 CREATE TABLE DIM_CountryMarket(
-    CountryID		NVARCHAR(50) NOT NULL,
-    CountryName		NVARCHAR(70) UNIQUE NOT NULL,
-    Market		NVARCHAR(50) NOT NULL
+    CountryID       NVARCHAR(50) NOT NULL,
+    CountryName     NVARCHAR(70) UNIQUE NOT NULL,
+    Market          NVARCHAR(50) NOT NULL
 );
 
 -- Populating Country Market Table
 INSERT INTO DIM_CountryMarket(CountryID, CountryName, Market)
 
-SELECT							-- Creates a combine Market name with number
-    CAST(						-- that starts from 1000 and increment by 1
-        CONCAT(UPPER(Market), '-',			-- reset to 0 for each market region
+SELECT                                                  -- Creates a combine Market name with number
+    CAST(                                               -- that starts from 1000 and increment by 1
+        CONCAT(UPPER(Market), '-',                      -- reset to 0 for each market region
         ROW_NUMBER() OVER(PARTITION BY Market ORDER BY Country) + 1000) 
     AS NVARCHAR) AS CountryMarketID,
     CY.Country,
@@ -1113,8 +1207,8 @@ FROM
 IF OBJECT_ID('DIM_Segment') IS NOT NULL DROP TABLE DIM_Segment;
 
 CREATE TABLE DIM_Segment(
-    SegmentID	TINYINT NOT NULL,
-    Segment	NVARCHAR(30) UNIQUE NOT NULL
+    SegmentID   TINYINT NOT NULL,
+    Segment	    NVARCHAR(30) UNIQUE NOT NULL
 );
 
 -- Populating Segment Table
@@ -1148,37 +1242,37 @@ FROM
 IF OBJECT_ID('DIM_Date') IS NOT NULL DROP TABLE DIM_Date;
 
 CREATE TABLE DIM_Date(
-    Date		DATE UNIQUE NOT NULL,
-    Day			TINYINT NOT NULL,
-    MonthNo		TINYINT NOT NULL,
-    MonthName		NVARCHAR(30) NOT NULL,
-    QuarterNo		NVARCHAR(30) NOT NULL,
-    Year		SMALLINT NOT NULL
+    Date        DATE UNIQUE NOT NULL,
+    Day         TINYINT NOT NULL,
+    MonthNo     TINYINT NOT NULL,
+    MonthName   NVARCHAR(30) NOT NULL,
+    QuarterNo   NVARCHAR(30) NOT NULL,
+    Year        SMALLINT NOT NULL
 );
 
 -- Populating Date Table
-DECLARE @StartDate DATE = '2011-01-01';				-- Dataset Start date
-DECLARE @EndDate DATE = '2014-12-31';				-- Dataset End date
-DECLARE @Counter INT = 1;					-- Start No. (Day)
+DECLARE @StartDate DATE = '2011-01-01';                     -- Dataset Start date
+DECLARE @EndDate DATE = '2014-12-31';                       -- Dataset End date
+DECLARE @Counter INT = 1;                                   -- Start No. (Day)
 
 WHILE
-    @StartDate <= @EndDate					-- A Condition, if met will stop the
-                                                        	-- reiteration of the creating data
-    BEGIN							-- specified below
+    @StartDate <= @EndDate                                  -- A Condition, to stop
+                                                            -- iteration if met
+    BEGIN
         INSERT INTO DIM_Date(Date, Day, MonthNo, MonthName, QuarterNo, Year)
 
         VALUES
             (
-                @StartDate,					-- Date 'YYYY-MM-DD'
-                DAY(@StartDate),				-- Date No.
-                DATEPART(MM, @StartDate),			-- Month No.
+                @StartDate,                                 -- Date 'YYYY-MM-DD'
+                DAY(@StartDate),                            -- Date No.
+                DATEPART(MM, @StartDate),                   -- Month No.
                 LEFT(DATENAME(MONTH, @StartDate), 3),		-- Month Name First 3 letters
                 CONCAT('Q',DATEPART(QUARTER, @StartDate)),	-- Quarter No.
-                YEAR(@StartDate)				-- Year No.
+                YEAR(@StartDate)                            -- Year No.
             )
-        SET @Counter += 1					-- Increment by 1
-        SET @StartDate = DATEADD(Day, 1, @StartDate)		-- Increment @StartDate by 1
-                                                            	-- for the next iteration
+        SET @Counter += 1                                   -- Increment by 1
+        SET @StartDate = DATEADD(Day, 1, @StartDate)        -- Increment @StartDate by 1
+                                                            -- for the next iteration
     END;
 
 
@@ -1195,11 +1289,11 @@ CREATE TABLE FACT_Sales(
     SegmentID	TINYINT NOT NULL,
     CountryID	NVARCHAR(50) NOT NULL,
     ProductID	NVARCHAR(150) NOT NULL,
-    Sales	DECIMAL(10,2) NOT NULL,
+    Sales       DECIMAL(10,2) NOT NULL,
     Quantity	TINYINT NOT NULL,
     Discount	DECIMAL(5,3) NOT NULL,
     Discounted	NVARCHAR(50) NOT NULL,
-    Profit	DECIMAL(10,2) NOT NULL
+    Profit      DECIMAL(10,2) NOT NULL
 
 );
 
