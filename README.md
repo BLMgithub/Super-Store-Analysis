@@ -10,8 +10,6 @@ demonstrate sufficient scale or structural demand.
 The focus is not on optimizing allocation, but on protecting the decision
 from weak, incentive-driven, or non-scalable narratives.
 
----
-
 ## What this repo demonstrates
 - Decision-grade analytics
 - Discipline-first problem framing
@@ -21,7 +19,6 @@ from weak, incentive-driven, or non-scalable narratives.
 This work is structured to surface only signals that can materially
 change allocation decisions.
 
----
 
 ## Decision context
 **Decision:** How to allocate an incremental $3M growth budget  
@@ -34,7 +31,6 @@ change allocation decisions.
 
 > Executive deliverable (decision narrative + recommendations): [`Executive decision summary (Website)`](https://bryan-melvida.gitbook.io/portfolio/projects/usd3m-growth-budget-decision-screen)
 
----
 
 ## Deliverables
 - **Decision narrative report** (Power BI, exported as static PDF)
@@ -42,7 +38,6 @@ change allocation decisions.
 - **SQL analysis pipeline** supporting all conclusions
 - **Documented assumptions, preprocessing decisions, and exclusions**
 
----
 
 ## Repository structure
 - `data/`
@@ -67,7 +62,6 @@ change allocation decisions.
     - `images/` - exported image previews of decision pages
   - `reports/` - Power BI reports and model files (PBIX)
 
----
 
 ## How the analysis is structured
 - `01_data_cleaning.sql`
@@ -84,7 +78,6 @@ change allocation decisions.
 - `03_reporting_extract.sql`
   - Extract reporting data derived from validated analysis outputs
 
----
 
 ## Scope boundaries
 This project intentionally does **not**:
